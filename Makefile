@@ -35,7 +35,7 @@ all: build
 
 build:
 	@echo "▶ Building all possible targets (no-flag mode)..."
-	python scripts/build.py
+	python3 scripts/build.py
 
 clean:
 	@echo "▶ Cleaning build output..."
@@ -49,7 +49,7 @@ test:
 
 verify: build
 	@echo "▶ Verifying artifact matrix..."
-	python scripts/build.py --verify
+	python3 scripts/build.py --verify
 
 tools:
 	@echo "▶ Ensuring toolchain $(GO_TOOLCHAIN) is available..."

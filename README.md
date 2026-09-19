@@ -1,89 +1,95 @@
-# Ebitengine Boilerplate
+# Stardate Type Drop
 
-A forkable starting point for cross-platform Ebitengine apps and games. It gives you a working local build pipeline first; deployment is a separate setup step you can tailor to your own release process.
+A Star Trek-themed typing game built with [Ebitengine](https://ebitengine.org/) in Go. Escape pods launch from a ship and fall toward a gravity well — type fast to rescue them.
 
-## The two pipelines
+## Game Modes
 
-### Primary: local build
+### Random Mode
+Words fall from a ship at the top of the screen toward a planet near the bottom. Type each word before it reaches the planet. Game over when any word passes the bottom.
 
-`scripts/build.py` is the primary pipeline. Run it with no target flags and it will:
+### Passage Mode
+Star Trek passages scroll on screen like a teleprompter. 5 lines visible at once, auto-scrolling to center the current line. Mistypes skip the current word (shown in red with strikethrough) rather than penalizing. 1.5-second crossfade transition between passages.
 
-- inspect the local Go/toolchain environment;
-- list every target, intended artifact path, local feasibility, and reason;
-- build every target that is locally possible; and
-- verify the artifacts it produced.
+## How Words Fall (Random Mode)
 
-On Unix, `make build` is a convenient equivalent. On every platform, use:
+- Spawning is beat-synced: 100 BPM = one beat every 0.6 seconds
+- Words only spawn on beats, gated by a cooldown
+- Base spawn gap starts at ~1.2 seconds and shrinks by ~0.03s per level, minimum ~0.2s
+- Adaptive targeting: the game tries to keep ~6 words on screen at once. If there are more than 8, spawning slows. If fewer than 4, it speeds up
+- Words launch from the ship at downward angles with slight horizontal drift — they don't fall straight down
+- As words approach the planet, they curve toward it and accelerate
+
+## How It Gets Harder
+
+| Factor | Level 1 | Scaling | Cap |
+| --- | --- | --- | --- |
+| Fall speed | 0.3 px/frame | +0.03 per level | 2.5 px/frame |
+| Spawn gap | ~1.2s | Shrinks ~0.03s per level | ~0.2s |
+| Level up | Every 5 words completed | — | — |
+
+The game also adapts to word density — too many words on screen slows spawning, too few speeds it up. Early game is gentle; by level 15 you're at max speed with tight spawns.
+
+## Scoring
+
+| Word Length | Points |
+| --- | --- |
+| 3-4 letters | 1 |
+| 5-6 letters | 3 |
+| 7+ letters | 5 |
+
+## Power-ups and Bombs
+
+- **Slow Motion**: Earn a charge every 10 words. Press Space to activate — 10 seconds of paused spawning and visual slowdown. Swaps to a different bass track.
+- **Bombs**: After a word is completed, it can arm as a bomb (2-second timer). If not defused, it explodes within 100px radius, destroying nearby words but not counting toward your score.
+
+## Audio
+
+- Bass and percussion volumes scale with level
+- Slow-motion swaps to a different bass track
+- Sound effects on every hit, miss, level-up, and power-up activation
+
+## Controls
+
+| Key | Action |
+| --- | --- |
+| Letters | Type to match falling words (auto-targets lowest matching word) |
+| Tab | Toggle auto-fire mode |
+| Space | Activate slow-motion power-up |
+| Escape | Quit |
+| 1 / 2 | Switch between Random and Passage mode (on game-over screen) |
+
+## Building
 
 ```bash
 python scripts/build.py --verify
 ```
 
-Artifacts are written to `releases/{goos}/{goarch}/app/latest[.exe]` and are ignored by Git.
+Or on Unix:
 
-### Secondary: deploy
-
-Deployment is intentionally not configured. The boilerplate includes an editor placeholder to make the next step visible, but it does not choose a store, GitHub Release, signing method, packaging format, credentials provider, or CI service for you.
-
-When you are ready to ship, configure a deploy pipeline that consumes `releases/` and matches your product's destination and security requirements. See [ROADMAP.md](ROADMAP.md) for the planned extension points.
-
-## Optional Ollama scaffolding
-
-The `agentic-pipelines/` submodule, `pipeline.yaml`, and `api.sample.yaml` are optional examples for people who want to add Ollama-backed governance or automation. They are not part of the build pipeline and are never required for building or deploying.
-
-If you choose to use them, copy `api.sample.yaml` to ignored `api.yaml`, configure your own local endpoint, and explicitly run the bootstrap scripts. Otherwise, you can ignore those files entirely.
-
-## What you get
-
-| Piece | Purpose |
-| --- | --- |
-| `cmd/app/main.go` | A single-file demo: drag and flick a bouncing "Hello, world." label. Delete or replace it with your app. |
-| `scripts/build.py` | The canonical no-flag build pipeline and target-feasibility report. |
-| `scripts/run_artifact.py` | Runs a built host artifact or lists all artifacts. |
-| `Makefile` | Unix convenience entry point with project-local Go caches. |
-| `releases/` | Ignored build output. |
-| `ROADMAP.md` | Build, deploy, and future-target extension plan. |
-
-## Quick start
-
-1. Fork or clone the repository and rename it.
-2. Install Go 1.26.4 and Python 3.10+.
-3. Build and verify every locally feasible target:
-
-   ```bash
-   python scripts/build.py --verify
-   ```
-
-4. Run the built host artifact:
-
-   ```bash
-   python scripts/run_artifact.py
-   ```
-
-The current demo is self-contained in `cmd/app/main.go`; replacing that one file is enough to begin your own app.
-
-## Current target policy
-
-| Target | Status |
-| --- | --- |
-| Native host desktop | Attempted and verified by the actual local build. |
-| JS/WASM | Built when the Go toolchain supports it; browser serving/packaging is left to you. |
-| Non-host desktop | Reported with a reason until cross-CGO toolchain support is deliberately added. |
-| Android | Deferred until gomobile and NDK integration are configured. |
-
-## Project layout
-
-```text
-cmd/app/main.go              Disposable Ebitengine demo application
-scripts/build.py             Primary no-flag build pipeline
-scripts/run_artifact.py      Artifact discovery and local execution
-releases/                    Ignored generated artifacts
-agentic-pipelines/           Optional Ollama/governance scaffolding
-pipeline.yaml                Optional governance demonstration contract
-ROADMAP.md                   Future build and deploy work
-AGENTS.md                    Instructions for coding agents
+```bash
+make build
 ```
 
-## Contributing
+Artifacts are written to `releases/{goos}/{goarch}/app/latest[.exe]`.
 
-Fork it and make it yours. If you add a useful target, packaging workflow, or deploy integration, contributions back to the boilerplate are welcome.
+## Running
+
+```bash
+python scripts/run_artifact.py
+```
+
+## Project Layout
+
+```text
+cmd/app/main.go              Game source (Ebitengine, ~1900 lines)
+cmd/app/words.go             Word list for Random mode
+cmd/app/_assets/             Fonts, sound effects
+scripts/build.py             Build pipeline
+scripts/run_artifact.py      Artifact runner
+releases/                    Build output (ignored by git)
+agentic-pipelines/           Optional Ollama/governance scaffolding
+```
+
+## Credits
+
+Built with Ebitengine v2.9.9. Fonts: Antonio (Bold, Light, Regular). Star Trek passages are paraphrases of TNG-era scenarios.
